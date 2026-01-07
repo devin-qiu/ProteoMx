@@ -2,24 +2,18 @@
 % Please edit documentation in R/MixModelFit.R
 \name{MixModelFit}
 \alias{MixModelFit}
-\title{Batch Mixture Model Fit for All Proteins}
+\title{Mixture Model Fit (Scoped Fix)}
 \usage{
 MixModelFit(geomx_set, ncomps = 3, neg_ctrl = "Rt IgG2a")
 }
 \arguments{
-\item{geomx_set}{A GeoMxSet object (containing @assayData$q_norm).}
+\item{geomx_set}{A GeoMxSet object.}
 
-\item{ncomps}{Integer. The maximum number of components to test (default 3).}
+\item{ncomps}{Max components to fit (default 3).}
 
-\item{neg_ctrl}{Character string. Name of the negative control target (default "Rt IgG2a").}
-}
-\value{
-A list containing:
-\item{fits}{A named list where keys are protein names and values are the fit objects.}
-\item{data}{The cleaned, log10-transformed data matrix (for plotting).}
-\item{threshold}{The numeric background threshold used.}
-\item{failed}{A vector of protein names that failed to fit (e.g. low counts).}
+\item{neg_ctrl}{Name of negative control probe (default "Rt IgG2a").}
 }
 \description{
-Batch Mixture Model Fit for All Proteins
+Fits mixture models and stores results in experimentData(object)@other$MixModel.
+Uses do.call() to bypass mixR scoping bugs.
 }

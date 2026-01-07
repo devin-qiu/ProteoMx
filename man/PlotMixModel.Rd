@@ -2,22 +2,23 @@
 % Please edit documentation in R/PlotMixModel.R
 \name{PlotMixModel}
 \alias{PlotMixModel}
-\title{Plot Mixture Model for a Specific Protein}
+\title{Plot Mixture Model from GeoMxSet}
 \usage{
-PlotMixModel(mix_model_fit, protein, ncomp, ev)
+PlotMixModel(geomx_set, protein, ncomp = NULL, ev = NULL)
 }
 \arguments{
-\item{mix_model_fit}{The list object returned by MixModelFit().}
+\item{geomx_set}{A GeoMxSet object processed by MixModelFit().}
 
-\item{protein}{Required. The name of the protein to plot.}
+\item{protein}{Character. Name of the protein to plot.}
 
-\item{ncomp}{Integer. Number of components to visualize.}
+\item{ncomp}{Integer (Optional). Number of components. If NULL, auto-selects by BIC.}
 
-\item{ev}{Logical. Equal variance assumption (TRUE or FALSE).}
+\item{ev}{Logical (Optional). Equal variance. If NULL, auto-selects by BIC.}
 }
 \value{
-A ggplot2 object.
+A ggplot object.
 }
 \description{
-Plot Mixture Model for a Specific Protein
+Visualizes the fitted mixture model for a specific protein.
+Uses density-on-density plotting for perfect alignment.
 }
