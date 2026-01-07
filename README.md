@@ -1,26 +1,9 @@
-
 # ProteoMx
+An R package for analyzing proteomics data of Nanostring GeoMx spatial profiling. 
 
-<!-- badges: start -->
-<!-- badges: end -->
+GeoMx protein sequencing is an antibody-based spatial profiling method. It relies on the IF-based ROI selection first, and then based on the classification within each ROI, 570 protein targets are sequenced for read counts. 
 
-The goal of ProteoMx is to ...
+Different antibodies have different binding affinities, so the so-called "negative controls" cannot be treated as numeric zeros. Rather, they are qualitative indicators. 
+For spatial analysis on human samples, usually no "standard" dataset paired
 
-## Installation
-
-You can install the development version of ProteoMx from [GitHub](https://github.com/) with:
-
-``` r
-# install.packages("pak")
-pak::pak("devin-qiu/ProteoMx")
-```
-
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(ProteoMx)
-## basic example code
-```
-
+Therefore, we will need
