@@ -1,11 +1,24 @@
-#' Q3 Normalization Helper
+#' This is a required preprocessing step before running mixture models.
 #'
-#' Performs 75th percentile (Q3) normalization on a GeoMxSet object.
-#' Stores the result in assayDataElement(object, "q_norm").
+#' @param geomx_set A \code{NanoStringGeoMxSet} object.
 #'
-#' @param geomx_set A GeoMxSet object.
-#' @return A GeoMxSet object with the 'q_norm' assay data added.
+#' @return A \code{NanoStringGeoMxSet} object with the normalized matrix stored in 
+#'   \code{assayDataElement(object, "q_norm")}.
+#'
+#' @details
+#' This function checks if \code{q_norm} already exists. If not, it calls
+#' \code{NanoStringNCTools::normalize} with \code{norm_method="quant"} and 
+#' \code{desiredQuantile=0.75}.
+#'
+#' @importFrom NanoStringNCTools normalize
+#' @importFrom Biobase assayData
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#'   # Basic usage
+#'   geomx_set <- Q3Normalize(geomx_set)
+#' }
 Q3Normalize <- function(geomx_set) {
   
   require(NanoStringNCTools)

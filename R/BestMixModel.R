@@ -1,12 +1,34 @@
-#' Select Best Mixture Model (Manual Tournament)
+#' Select Best Mixture Model (Ab Initio)
 #'
-#' Manually fits models for ncomp = 1 to ncomps and picks the winner (Lowest BIC).
-#' This bypasses mixR::select() to avoid crashes/NAs.
+#' Runs an independent tournament to find the optimal mixture model for each protein.
 #'
-#' @param geomx_set A GeoMxSet object containing @assayData$q_norm.
-#' @param ncomps Integer. Max components to test (default 3).
-#' @return A tibble with columns: Protein, Best_NComp, Best_EV, Best_BIC.
+#' @param geomx_set A \code{NanoStringGeoMxSet} object processed by \code{Q3Normalize}.
+#' @param ncomps Integer. The maximum number of components to test (default: 3).
+#'
+#' @return A \code{tibble} with columns:
+#' \itemize{
+#'   \item \code{Protein}: Protein name
+#'   \item \code{Best_NComp}: Optimal number of components
+#'   \item \code{Best_EV}: Optimal variance assumption (TRUE/FALSE)
+#'   \item \code{Best_BIC}: The Bayesian Information Criterion of the winning model
+#' }
+#'
+#' @details
+#' This function performs a "Manual Tournament" by running \code{mixfit} for 
+#' all combinations of components (1 to \code{ncomps}) and variance structures.
+#' It explicitly handles errors to prevent the entire run from failing if one model crashes.
+#'
+#' @importFrom mixR mixfit
+#' @importFrom dplyr bind_rows slice_min
+#' @importFrom tibble tibble
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#'   # Find the best model parameters for all proteins
+#'   best_stats <- BestMixModel(geomx_set, ncomps = 3)
+#'   head(best_stats)
+#' }
 BestMixModel <- function(geomx_set, ncomps = 3) {
   
   require(mixR)

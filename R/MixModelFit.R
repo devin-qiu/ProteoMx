@@ -1,12 +1,37 @@
-#' Mixture Model Fit (Scoped Fix)
+#' Fit Mixture Models (Batch Engine)
 #'
-#' Fits mixture models and stores results in experimentData(object)@other$MixModel.
-#' Uses do.call() to bypass mixR scoping bugs.
+#' Fits Gaussian mixture models for all proteins in a GeoMxSet object.
+#' Results are stored directly inside the object's metadata.
 #'
-#' @param geomx_set A GeoMxSet object.
-#' @param ncomps Max components to fit (default 3).
-#' @param neg_ctrl Name of negative control probe (default "Rt IgG2a").
+#' @param geomx_set A \code{NanoStringGeoMxSet} object. Must be Q3 normalized first.
+#' @param ncomps Integer. The maximum number of components to fit (default: 3).
+#' @param neg_ctrl Character. The name of the negative control probe (default: "Rt IgG2a").
+#'   Used to calculate the detection threshold (Mean + 1 SD).
+#'
+#' @return The input \code{geomx_set} object, updated with fit results stored in 
+#'   \code{experimentData(object)@other$MixModel}.
+#'
+#' @details
+#' This function iterates through every protein and fits mixture models for every combination of:
+#' \itemize{
+#'   \item Components: 1 to \code{ncomps}
+#'   \item Variance: Equal (ev=TRUE) and Unequal (ev=FALSE)
+#' }
+#' 
+#' It uses \code{do.call} to robustly handle scoping issues in the underlying \code{mixR} package.
+#'
+#' @importFrom mixR mixfit
+#' @importFrom Biobase experimentData experimentData<- assayDataElement
+#' @importFrom dplyr tibble
 #' @export
+#'
+#' @seealso \code{\link{Q3Normalize}}, \code{\link{PlotMixModel}}
+#'
+#' @examples
+#' \dontrun{
+#'   # Fit up to 3 components using 'Rt IgG2a' as background
+#'   geomx_set <- MixModelFit(geomx_set, ncomps = 3, neg_ctrl = "Rt IgG2a")
+#' }
 MixModelFit <- function(geomx_set, ncomps = 3, neg_ctrl = "Rt IgG2a") {
   
   require(mixR)

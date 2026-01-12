@@ -1,15 +1,38 @@
-#' Plot Mixture Model from GeoMxSet
+#' Plot Mixture Model Fit
 #'
 #' Visualizes the fitted mixture model for a specific protein. 
-#' Uses density-on-density plotting for perfect alignment.
 #'
-#' @param geomx_set A GeoMxSet object processed by MixModelFit().
-#' @param protein Character. Name of the protein to plot.
-#' @param ncomp Integer (Optional). Number of components. If NULL, auto-selects by BIC.
-#' @param ev Logical (Optional). Equal variance. If NULL, auto-selects by BIC.
+#' @param geomx_set A \code{NanoStringGeoMxSet} object processed by \code{MixModelFit}.
+#' @param protein Character. The name of the protein to plot.
+#' @param ncomp Integer (Optional). Number of components to plot. If \code{NULL}, 
+#'   the function auto-selects the best model based on the lowest BIC stored in the object.
+#' @param ev Logical (Optional). Equal variance assumption. If \code{NULL}, 
+#'   auto-selects the best model.
 #'
-#' @return A ggplot object.
+#' @return A \code{ggplot} object showing:
+#' \itemize{
+#'   \item Histogram of observed data (density scale)
+#'   \item Gaussian curves for individual components (filled areas)
+#'   \item Total mixture curve (black line)
+#'   \item Threshold line (red dashed)
+#' }
+#'
+#' @details
+#' This function retrieves fit parameters directly from \code{experimentData(object)@other$MixModel}.
+#' It uses density-on-density plotting to ensure the curves align perfectly with the histogram.
+#'
+#' @import ggplot2
+#' @importFrom Biobase experimentData assayDataElement
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#'   # Plot using auto-detected best parameters
+#'   PlotMixModel(geomx_set, "CD44")
+#'
+#'   # Plot a specific model (e.g., 2 components, unequal variance)
+#'   PlotMixModel(geomx_set, "CD44", ncomp = 2, ev = FALSE)
+#' }
 PlotMixModel <- function(geomx_set, protein, ncomp = NULL, ev = NULL) {
   
   require(ggplot2)
