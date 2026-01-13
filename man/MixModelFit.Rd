@@ -2,18 +2,38 @@
 % Please edit documentation in R/MixModelFit.R
 \name{MixModelFit}
 \alias{MixModelFit}
-\title{Mixture Model Fit (Scoped Fix)}
+\title{Fit Mixture Models (Batch Engine)}
 \usage{
-MixModelFit(geomx_set, ncomps = 3, neg_ctrl = "Rt IgG2a")
+MixModelFit(geomx_set, ncomps = 3)
 }
 \arguments{
-\item{geomx_set}{A GeoMxSet object.}
+\item{geomx_set}{A \code{NanoStringGeoMxSet} object. Must be Q3 normalized first.}
 
-\item{ncomps}{Max components to fit (default 3).}
-
-\item{neg_ctrl}{Name of negative control probe (default "Rt IgG2a").}
+\item{ncomps}{Integer. The maximum number of components to fit (default: 3).}
+}
+\value{
+The input \code{geomx_set} object, updated with fit results stored in
+\code{experimentData(object)@other$MixModel}.
 }
 \description{
-Fits mixture models and stores results in experimentData(object)@other$MixModel.
-Uses do.call() to bypass mixR scoping bugs.
+Fits Gaussian mixture models for all proteins in a GeoMxSet object.
+Results are stored directly inside the object's metadata.
+}
+\details{
+This function iterates through every protein and fits mixture models for every combination of:
+\itemize{
+\item Components: 1 to \code{ncomps}
+\item Variance: Equal (ev=TRUE) and Unequal (ev=FALSE)
+}
+
+It uses \code{do.call} to robustly handle scoping issues in the underlying \code{mixR} package.
+}
+\examples{
+\dontrun{
+  # Fit up to 3 components
+  geomx_set <- MixModelFit(geomx_set, ncomps = 3)
+}
+}
+\seealso{
+\code{\link{Q3Normalize}}, \code{\link{PlotMixModel}}
 }

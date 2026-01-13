@@ -7,11 +7,35 @@
 GetMixModelResults(geomx_set)
 }
 \arguments{
-\item{geomx_set}{A GeoMxSet object processed by MixModelFit.}
+\item{geomx_set}{A \code{NanoStringGeoMxSet} object processed by \code{\link{MixModelFit}}.}
 }
 \value{
-The list of fits and thresholds.
+A list containing:
+\itemize{
+\item \code{fits}: The list of model fits for all proteins.
+\item \code{threshold}: The calculated background threshold.
+\item \code{params}: The parameters used for the run (ncomps, negative control).
+\item \code{timestamp}: When the analysis was run.
+}
 }
 \description{
-Helper function to retrieve MixModel results from a GeoMxSet object.
+A helper function to safely retrieve the mixture model analysis results
+stored inside a GeoMxSet object.
+}
+\details{
+This function accesses \code{experimentData(object)@other$MixModel}.
+It checks if the data exists and stops with a helpful error message if
+\code{MixModelFit} has not been run yet.
+}
+\examples{
+\dontrun{
+  # Retrieve the results list
+  results <- GetMixModelResults(geomx_set)
+  
+  # Inspect the threshold used
+  print(results$threshold)
+}
+}
+\seealso{
+\code{\link{MixModelFit}}
 }
