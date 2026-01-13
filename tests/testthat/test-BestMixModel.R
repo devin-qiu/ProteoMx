@@ -7,10 +7,13 @@ test_that("BestMixModel returns valid tibble with selection log", {
   
   # Expect
   expect_s3_class(res, "tbl_df")
-  expect_equal(nrow(res), nrow(obj)) # One row per protein
+  
+  # FIX: Use as.integer() to strip any "Features" label from the S4 object row count
+  expect_equal(nrow(res), as.integer(nrow(obj))) 
   
   # Check columns
-  expect_true("Selection_Log" %in% colnames(res))
+  expected_cols <- c("Protein", "Best_NComp", "Best_EV", "Best_BIC", "Selection_Log")
+  expect_true(all(expected_cols %in% colnames(res)))
   
   # Check internal log structure
   expect_s3_class(res$Selection_Log[[1]], "tbl_df")
