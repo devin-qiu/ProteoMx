@@ -1,16 +1,64 @@
 #' Plot Mixture Model Fit
 #'
-#' Visualizes the fitted mixture model for a specific protein, overlaid with the 
-#' negative control threshold.
+#' Visualizes the fitted Gaussian mixture model for a specific protein, overlaid with a
+#' dynamic negative control threshold to assess signal detection.
 #'
-#' @param geomx_set A \code{NanoStringGeoMxSet} object processed by \code{MixModelFit}.
-#' @param protein Character. Name of the protein to plot.
-#' @param ncomp Integer (Optional). Number of components. If NULL, auto-selects by BIC.
-#' @param ev Logical (Optional). Equal variance. If NULL, auto-selects by BIC.
-#' @param neg_ctrl Character. The negative control probe to use for the threshold (default "Rt IgG2a").
+#' @description
+#' This function generates a density plot of the log10-transformed data for a selected protein.
+#' It overlays the fitted mixture components (as filled areas) and the total model fit (as a black line).
+#' A red dashed line indicates the background noise threshold, calculated dynamically based on
+#' the selected negative control probe.
 #'
-#' @return A ggplot object.
+#' @param geomx_set A \code{NanoStringGeoMxSet} object processed by \code{\link{MixModelFit}}.
+#' @param protein Character. The name of the protein to plot.
+#' @param ncomp Integer (Optional). The number of components to plot.
+#'   If \code{NULL}, the function auto-selects the best model based on the lowest BIC score
+#'   stored in the object.
+#' @param ev Logical (Optional). Equal variance assumption.
+#'   If \code{NULL}, the function auto-selects the best model based on BIC.
+#' @param neg_ctrl Character. The negative control probe to use as the noise baseline.
+#'   The threshold is calculated as \code{mean(neg_ctrl) + 1 * SD(neg_ctrl)}.
+#'
+#'   \strong{Recommended Options:}
+#'   \itemize{
+#'     \item "Rt IgG2a" (Often the lowest background)
+#'     \item "Hmr IgG"
+#'     \item "Ms IgG2b"
+#'     \item "Rb IgG"
+#'     \item "Ms IgG1"
+#'   }
+#'
+#' @return A \code{\link[ggplot2]{ggplot}} object showing:
+#' \itemize{
+#'   \item Histogram of observed data (density scale)
+#'   \item Gaussian curves for individual components (filled areas)
+#'   \item Total mixture curve (black line)
+#'   \item Threshold line (red dashed) with annotation
+#'   \item Subtitle indicating if the protein is considered "Detected" (max component mean > threshold)
+#' }
+#'
+#' @details
+#' The function retrieves fit parameters directly from \code{experimentData(object)@other$MixModel}.
+#' It calculates the detection threshold on the fly using the provided \code{neg_ctrl}.
+#' If \code{ncomp} and \code{ev} are not provided, it scans the stored results to find the
+#' model combination (ncomp/ev) with the lowest BIC for that specific protein.
+#'
+#' @import ggplot2
+#' @importFrom Biobase experimentData assayDataElement
+#' @importFrom dplyr filter
+#' @importFrom tibble tibble
 #' @export
+#'
+#' @seealso \code{\link{MixModelFit}}, \code{\link{FilterProteins}}
+#'
+#' @examples
+#' \dontrun{
+#'   # Plot using auto-detected best parameters and default control
+#'   PlotMixModel(geomx_set, "CD44")
+#'
+#'   # Plot using a specific control and model parameters
+#'   PlotMixModel(geomx_set, "CD44", ncomp = 2, ev = FALSE, neg_ctrl = "Ms IgG1")
+#' }
 PlotMixModel <- function(geomx_set, protein, ncomp = NULL, ev = NULL, neg_ctrl = "Rt IgG2a") {
   
   require(ggplot2)
