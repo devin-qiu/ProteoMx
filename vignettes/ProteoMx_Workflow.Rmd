@@ -1,8 +1,8 @@
 ---
-title: "ProteoMx_Workflow"
+title: "ProteoMx Standard Workflow"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{ProteoMx_Workflow}
+  %\VignetteIndexEntry{ProteoMx Standard Workflow}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -10,10 +10,112 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 6, 
+  fig.height = 4
 )
 ```
 
 ```{r setup}
 library(ProteoMx)
+library(dplyr)
+library(Biobase)
 ```
+
+# Introduction
+**ProteoMx** provides a robust statistical framework for identifying expressed proteins in GeoMx DSP data. By using Gaussian Mixture Models , this workflow separates biological signal from background noise, offering a data-driven alternative to fixed signal-to-noise ratios.
+
+This vignette demonstrates the standard pipeline: **Normalize** $\rightarrow$ **Fit Models** $\rightarrow$ **Visualize** $\rightarrow$ **Optimize** $\rightarrow$ **Filter**, using a small example dataset (`tiny_geomx`).
+
+## 1. Load Data
+We start by loading the `tiny_geomx` example dataset included in the package. This is a small subset of real GeoMx data designed for demonstration purposes.
+
+```{r load data}
+# Load the example dataset included in the package
+data("tiny_geomx")
+
+# For this tutorial, we will use 'tiny_geomx' as our primary object
+geomx_set <- tiny_geomx
+
+# Inspect the dimensions
+print(dim(geomx_set))
+```
+
+## 2. Normalization (Q3)
+Mixture modeling requires normalized data. We use Q3 (75th percentile) normalization to account for library size differences.
+
+```{r Q3 normalization}
+# Apply Q3 Normalization
+geomx_set <- Q3Normalize(geomx_set)
+
+# Verify 'q_norm' was added to the assay data
+print("q_norm" %in% names(assayData(geomx_set)))
+```
+
+## 3. Mathematical Modeling (MixModelFit)
+We now fit Gaussian Mixture Models to every protein. We specify `ncomps` (number of components) to test up to a certain complexity.
+
+> Note: For this small dataset, we fit up to 3 components. For real data, you might test up to 5.
+
+```{r fit miture models}
+# Fit mixture models (Testing 1 to 3 components)
+geomx_set <- MixModelFit(geomx_set, ncomps = 3)
+```
+
+## 4. Extracting Results
+We can inspect the raw fit results using the helper function GetMixModelResults.
+
+```{r extract fit results}
+# Extract the result list
+fit_results <- GetMixModelResults(geomx_set)
+
+# Inspect the parameters used
+print(fit_results$params)
+```
+
+## 5. Visualization (PlotMixModel)
+We can plot specific proteins to see how the model separates signal (high abundance) from noise (low abundance). The red dashed line represents the background threshold (Neg Probe Mean + 1 SD).
+
+
+```{r plot mixture models}
+# We pick a random protein from the dataset to demonstrate a positive target
+# In your real analysis, you would replace this with proteins that are biologically meaningful. 
+available_proteins <- setdiff(rownames(tiny_geomx), c("Rt IgG2a", "Hmr IgG"))
+target_protein <- available_proteins[sample(1:length(rownames(tiny_geomx)), 1)] 
+
+message(paste("Plotting target:", target_protein))
+
+# Plot with auto-selected parameters
+PlotMixModel(geomx_set, protein = target_protein)
+
+# Plot with forced parameters (e.g., 3 components, Equal Variance)
+PlotMixModel(geomx_set, protein = target_protein, ncomp = 3, ev = TRUE)
+```
+
+## 6. Model Optimization (BestMixModel)
+To determine the mathematically optimal model for each protein, we run a "tournament" comparing BICs across all combinations of components and variance structures.
+
+```{r find best model}
+# Run the selection tournament
+best_fit <- BestMixModel(geomx_set, ncomps = 3)
+
+# View the top results:
+# Best_NComp: Optimal number of components
+# Best_EV: Optimal variance structure
+head(best_fit)
+```
+
+## 7. Filtering (FilterProteins)
+Finally, we remove proteins that are not distinguishable from background noise. A protein is retained only if its signal exceeds the background threshold in at least one valid model.
+
+```{r}
+# Filter based on the 'Rt IgG2a' background
+geomx_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
+
+# Compare dimensions before and after
+print(paste("Original Features:", nrow(geomx_set)))
+print(paste("Filtered Features:", nrow(geomx_filtered)))
+```
+
+
+
