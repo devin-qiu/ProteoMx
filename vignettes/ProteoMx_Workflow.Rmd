@@ -34,11 +34,8 @@ We start by loading the `tiny_geomx` example dataset included in the package. Th
 # Load the example dataset included in the package
 data("tiny_geomx")
 
-# For this tutorial, we will use 'tiny_geomx' as our primary object
-geomx_set <- tiny_geomx
-
 # Inspect the dimensions
-print(dim(geomx_set))
+print(dim(tiny_geomx))
 ```
 
 ## 2. Normalization (Q3)
@@ -46,10 +43,10 @@ Mixture modeling requires normalized data. We use Q3 (75th percentile) normaliza
 
 ```{r Q3 normalization}
 # Apply Q3 Normalization
-geomx_set <- Q3Normalize(geomx_set)
+tiny_geomx <- Q3Normalize(tiny_geomx)
 
 # Verify 'q_norm' was added to the assay data
-print("q_norm" %in% names(assayData(geomx_set)))
+print("q_norm" %in% names(assayData(tiny_geomx)))
 ```
 
 ## 3. Mathematical Modeling (MixModelFit)
@@ -59,7 +56,7 @@ We now fit Gaussian Mixture Models to every protein. We specify `ncomps` (number
 
 ```{r fit miture models}
 # Fit mixture models (Testing 1 to 3 components)
-geomx_set <- MixModelFit(geomx_set, ncomps = 3)
+tiny_geomx <- MixModelFit(tiny_geomx, ncomps = 3)
 ```
 
 ## 4. Extracting Results
@@ -67,7 +64,7 @@ We can inspect the raw fit results using the helper function GetMixModelResults.
 
 ```{r extract fit results}
 # Extract the result list
-fit_results <- GetMixModelResults(geomx_set)
+fit_results <- GetMixModelResults(tiny_geomx)
 
 # Inspect the parameters used
 print(fit_results$params)
@@ -86,10 +83,10 @@ target_protein <- available_proteins[sample(1:length(rownames(tiny_geomx)), 1)]
 message(paste("Plotting target:", target_protein))
 
 # Plot with auto-selected parameters
-PlotMixModel(geomx_set, protein = target_protein)
+PlotMixModel(tiny_geomx, protein = target_protein)
 
 # Plot with forced parameters (e.g., 3 components, Equal Variance)
-PlotMixModel(geomx_set, protein = target_protein, ncomp = 3, ev = TRUE)
+PlotMixModel(tiny_geomx, protein = target_protein, ncomp = 3, ev = TRUE)
 ```
 
 ## 6. Model Optimization (BestMixModel)
@@ -97,7 +94,7 @@ To determine the mathematically optimal model for each protein, we run a "tourna
 
 ```{r find best model}
 # Run the selection tournament
-best_fit <- BestMixModel(geomx_set, ncomps = 3)
+best_fit <- BestMixModel(tiny_geomx, ncomps = 3)
 
 # View the top results:
 # Best_NComp: Optimal number of components
@@ -110,10 +107,10 @@ Finally, we remove proteins that are not distinguishable from background noise. 
 
 ```{r}
 # Filter based on the 'Rt IgG2a' background
-geomx_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
+geomx_filtered <- FilterProteins(tiny_geomx, neg_ctrl = "Rt IgG2a")
 
 # Compare dimensions before and after
-print(paste("Original Features:", nrow(geomx_set)))
+print(paste("Original Features:", nrow(tiny_geomx)))
 print(paste("Filtered Features:", nrow(geomx_filtered)))
 ```
 
