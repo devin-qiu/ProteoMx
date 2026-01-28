@@ -51,7 +51,7 @@ geomx_set <- MixModelFit(geomx_set, ncomps = 3)
 ```
 
 # 4. Visualization
-Check model fit against the background threshold (Red Line) \n
+Check model fit against the background threshold (Red Line).  
 Example: Plot a known negative control vs. a target protein
 ```r
 PlotMixModel(geomx_set, protein = "Rt IgG2a")      # Negative Control
