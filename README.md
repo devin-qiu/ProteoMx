@@ -11,7 +11,6 @@ Therefore, we will need
 
 # ProteoMx
 
-[![R-CMD-check](https://github.com/USERNAME/ProteoMx/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/USERNAME/ProteoMx/actions/workflows/R-CMD-check.yaml)
 **ProteoMx** provides a robust statistical framework for identifying expressed proteins in GeoMx DSP data. 
 
 Instead of using arbitrary signal-to-noise thresholds, ProteoMx uses **Gaussian Mixture Models (GMM)** to mathematically distinguish true biological signal from background noise. This approach is data-driven, adaptive, and ideal for complex spatial proteomics data.
