@@ -38,25 +38,36 @@ data("geomx_set")
 ```
 
 # 2. Normalize (Q3)
-Corrects for library size differences between AOIs
+Normalization based on the 3rd quantile (Q3) corrects for library size differences between AOIs.
 ```r
 geomx_set <- Q3Normalize(geomx_set)
+# This function is equivalent to 
+# NanoStringNCTools::normalize(..., norm_method = "quant", desiredQuantile = 0.75, toElt = "q_norm")
 ```
 
 # 3. Fit Mixture Models
-Fits Gaussian models (testing 1 to 3 components) for every protein
+Fits Gaussian models for every protein in the dataset. Both equal and unequal variance fits will be performed by default. 
+
+*ncomp*: the number of components to be fit in the mixture models. 
 ```r
 geomx_set <- MixModelFit(geomx_set, ncomps = 3)
 ```
 
 # 4. Visualization
 Check model fit against the background threshold (Red Line).  
-Example: Plot a known negative control vs. a target protein
+
+protein
+
+ncomp
+
+ev
+
+
+
 ```r
 PlotMixModel(geomx_set, protein = "Rt IgG2a")      # Negative Control
 PlotMixModel(geomx_set, protein = "Cytokeratin 17") # Target Protein
 ```
-
 
 # 5. Optimization
 ```r
