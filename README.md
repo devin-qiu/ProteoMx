@@ -62,7 +62,7 @@ ncomp
 
 ev
 
-
+neg_ctrl
 
 ```r
 PlotMixModel(geomx_set, protein = "Rt IgG2a")      # Negative Control

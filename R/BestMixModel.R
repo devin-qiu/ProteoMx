@@ -1,71 +1,34 @@
-#' Select Best Mixture Model (Manual Tournament + Selection Log)
+#' Select Best Mixture Model (Bayes Factor + Occam's Razor)
 #'
 #' Robustly identifies the optimal mixture model for each protein by manually fitting
-#' all combinations of components and variance structures.
+#' all combinations of components and variance structures, and using Bayes Factors
+#' to penalize unnecessary complexity (Occam's Razor).
 #'
 #' @description
-#' This function performs a "Manual Tournament" to find the best model (lowest BIC).
-#' Unlike \code{mixR::select}, this function handles errors gracefully: if a specific
-#' model fails to converge, it is simply skipped, preventing the entire run from crashing.
-#'
-#' It returns a main summary of the mathematical winners, plus a detailed
-#' \code{Selection_Log} for every protein to allow for manual inspection (e.g., checking the "Elbow Rule").
+#' This function performs a "Manual Tournament" to find the best model.
+#' It converts BIC scores to Bayes Factors using \code{bayestestR}. If a simpler
+#' model (fewer components) is statistically indistinguishable from a more complex model
+#' (log10(Bayes Factor) < 0.5), the simpler model is chosen to prevent overfitting.
 #'
 #' @param geomx_set A \code{NanoStringGeoMxSet} object. Must be processed by \code{\link{Q3Normalize}} first.
 #' @param ncomps Integer. The maximum number of components to test (default: 3).
-#'   The function will test all values from 1 to \code{ncomps}.
 #'
 #' @return A \code{\link[tibble]{tibble}} with one row per protein and the following columns:
 #' \itemize{
 #'   \item \code{Protein}: The name of the protein.
-#'   \item \code{Best_NComp}: The number of components in the model with the lowest BIC.
-#'   \item \code{Best_EV}: The variance assumption (TRUE/FALSE) of the winning model.
-#'   \item \code{Best_BIC}: The BIC score of the winning model.
-#'   \item \code{Selection_Log}: A list-column. Each entry contains a nested tibble with the
-#'         history of all successful fits for that protein, sorted by model simplicity
-#'         (fewer components first, then equal variance).
+#'   \item \code{Chosen_NComp}: The number of components in the winning model.
+#'   \item \code{Chosen_EV}: The variance assumption of the winning model.
+#'   \item \code{Chosen_BIC}: The BIC score of the winning model.
+#'   \item \code{Best_Signal_Mean}: The highest component mean from the winning model (used for filtering).
+#'   \item \code{Ambiguity_Note}: Flag if the top 2 models were statistically indistinguishable.
+#'   \item \code{Selection_Log}: Nested tibble containing the history and Bayes Factors of all successful fits.
 #' }
-#'
-#' @details
-#' \strong{The Tournament Logic:}
-#' For each protein, the function iterates through:
-#' \itemize{
-#'   \item \code{ncomp}: 1 to \code{ncomps}
-#'   \item \code{ev}: \code{FALSE} (unequal variance) and \code{TRUE} (equal variance)
-#' }
-#' The function uses \code{\link{do.call}} to robustly pass data to \code{mixR::mixfit},
-#' bypassing common scoping errors found in the native package.
-#'
-#' \strong{Selection Log Sorting:}
-#' The inner tables in \code{Selection_Log} are sorted by \strong{Parsimony} (simplicity),
-#' not by BIC.
-#' \enumerate{
-#'   \item Lowest \code{ncomp} (1) to highest.
-#'   \item For the same \code{ncomp}, \code{ev=TRUE} (simpler) comes before \code{ev=FALSE}.
-#' }
-#' This allows users to easily scan the log and apply the "Elbow Rule" (choosing a simpler model
-#' if the BIC improvement of a more complex one is negligible).
 #'
 #' @importFrom mixR mixfit
-#' @importFrom dplyr bind_rows arrange desc
+#' @importFrom dplyr bind_rows arrange desc mutate filter
 #' @importFrom tibble tibble
 #' @importFrom Biobase assayDataElement
 #' @export
-#'
-#' @seealso \code{\link{MixModelFit}}, \code{\link{PlotMixModel}}
-#'
-#' @examples
-#' \dontrun{
-#'   # 1. Run the tournament (computationally intensive)
-#'   best_res <- BestMixModel(geomx_set, ncomps = 3)
-#'
-#'   # 2. View the winners
-#'   print(head(best_res))
-#'
-#'   # 3. Inspect the detailed log for the first protein to check for overfitting
-#'   # (Look for marginal BIC improvements between ncomp=2 and ncomp=3)
-#'   print(best_res$Selection_Log[[1]])
-#' }
 BestMixModel <- function(geomx_set, ncomps = 3) {
   
   require(mixR)
@@ -73,11 +36,14 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
   require(tibble)
   require(Biobase)
   
+  if (!requireNamespace("bayestestR", quietly = TRUE)) {
+    stop("Package 'bayestestR' is required for Bayes Factor calculations.")
+  }
+  
   # --- 1. Data Prep ---
   if (!"q_norm" %in% names(assayData(geomx_set))) stop("Error: 'q_norm' missing. Run Q3Normalize() first.")
   q3_mat <- assayDataElement(geomx_set, "q_norm")
   
-  # Clean columns
   bad_cols <- apply(q3_mat, 2, function(x) all(is.na(x) | is.infinite(x)))
   if (sum(bad_cols) > 0) q3_mat <- q3_mat[, !bad_cols]
   
@@ -85,12 +51,14 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
   all_proteins <- rownames(log_mat)
   
   # Output containers
-  best_ncomp_sel <- rep(NA_integer_, length(all_proteins))
-  best_ev_sel    <- rep(NA, length(all_proteins)) 
-  best_bic_sel   <- rep(NA_real_, length(all_proteins))
-  selection_logs <- vector("list", length(all_proteins))
+  chosen_ncomp_sel <- rep(NA_integer_, length(all_proteins))
+  chosen_ev_sel    <- rep(NA, length(all_proteins)) 
+  chosen_bic_sel   <- rep(NA_real_, length(all_proteins))
+  best_mean_sel    <- rep(NA_real_, length(all_proteins))
+  note_sel         <- rep("", length(all_proteins))
+  selection_logs   <- vector("list", length(all_proteins))
   
-  message("Running Manual Tournament (1 to ", ncomps, " components)...")
+  message("Running Manual Tournament with Bayes Factor Selection (1 to ", ncomps, " components)...")
   pb <- txtProgressBar(min = 0, max = length(all_proteins), style = 3)
   
   # --- 2. Loop Over Proteins ---
@@ -102,68 +70,98 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     
     if (length(vals) < 10) next 
     
-    # Storage for this protein's tournament
     protein_tournament <- list()
-    
-    # Variables to track the mathematical winner (Lowest BIC)
-    best_bic_local <- Inf
-    best_model_local <- list(ncomp = NA, ev = NA)
+    fitted_models <- list() # Store the actual model objects to extract means later
     
     # --- 3. The Tournament Loop ---
-    for (ev_flag in c(FALSE, TRUE)) {
+    for (ev_flag in c(TRUE, FALSE)) { # Test TRUE (simpler) then FALSE
       for (k in 1:ncomps) {
         
-        # Run fit safely using do.call
         fit <- tryCatch(
           do.call(mixR::mixfit, list(x = vals, ncomp = k, family = "norm", ev = ev_flag, init.method = "kmeans")),
           error = function(e) NULL
         )
         
-        # Record Result
         bic_val <- NA_real_
+        max_mean <- NA_real_
+        
         if (!is.null(fit) && !is.null(fit$bic) && !is.nan(fit$bic)) {
           bic_val <- fit$bic
+          max_mean <- max(fit$mu, na.rm = TRUE)
           
-          # Check if this is the new mathematical winner
-          if (bic_val < best_bic_local) {
-            best_bic_local <- bic_val
-            best_model_local <- list(ncomp = k, ev = ev_flag)
-          }
+          # Create a unique ID for this model to link the dataframe to the fitted object
+          model_id <- paste0("n", k, "_ev", ev_flag)
+          fitted_models[[model_id]] <- fit
         }
         
         protein_tournament[[length(protein_tournament) + 1]] <- tibble(
+          model_id = paste0("n", k, "_ev", ev_flag),
           ncomp = k,
           ev = ev_flag,
-          bic = bic_val
+          bic = bic_val,
+          max_mean = max_mean
         )
       }
     }
     
-    # --- 4. Compile Results for this Protein ---
+    # --- 4. Bayes Factor Selection Logic ---
+    log_tbl <- bind_rows(protein_tournament) %>% filter(!is.na(bic))
     
-    # Store the mathematical winner in the main columns
-    if (best_bic_local < Inf) {
-      best_ncomp_sel[i] <- best_model_local$ncomp
-      best_ev_sel[i]    <- best_model_local$ev
-      best_bic_sel[i]   <- best_bic_local
+    if (nrow(log_tbl) > 0) {
+      
+      # 4a. Find absolute minimum BIC
+      min_bic <- min(log_tbl$bic)
+      
+      # 4b. Calculate Bayes Factors relative to the minimum BIC model
+      # bic_to_bf returns values > 1 for models worse than the denominator
+      log_tbl <- log_tbl %>%
+        mutate(
+          BF = bayestestR::bic_to_bf(bic, denominator = min_bic),
+          log10_BF = abs(log10(BF))
+        ) %>%
+        # Sort by SIMPLICITY (Parsimony) first: 
+        # Lower ncomp first, then Equal Variance (TRUE) first
+        arrange(ncomp, desc(ev))
+      
+      # 4c. Occam's Razor: Pick the SIMPLEST model where log10_BF < 0.5
+      # Since log_tbl is already sorted by simplicity, the FIRST row that meets the criteria is our winner
+      valid_models <- log_tbl %>% filter(log10_BF < 0.5)
+      
+      if (nrow(valid_models) > 0) {
+        chosen_model <- valid_models[1, ]
+        
+        chosen_ncomp_sel[i] <- chosen_model$ncomp
+        chosen_ev_sel[i]    <- chosen_model$ev
+        chosen_bic_sel[i]   <- chosen_model$bic
+        best_mean_sel[i]    <- chosen_model$max_mean
+        
+        # 4d. Check for Ambiguity (Are there other very different models that are also 'close'?)
+        # If the top two models (by BIC, not simplicity) are within 0.5, we flag it.
+        bic_sorted <- log_tbl %>% arrange(bic)
+        if (nrow(bic_sorted) > 1 && bic_sorted$log10_BF[2] < 0.5) {
+          note_sel[i] <- "Top 2 models have similar fitting score. Please check manually and decide which model works the best."
+        }
+      }
     }
     
-    # Store the Full Log, sorted by SIMPLICITY (Parsimony)
-    # Order: Lower ncomp first. For ties, Equal Variance (TRUE) first.
-    log_tbl <- bind_rows(protein_tournament) %>%
-      filter(!is.na(bic)) %>%
-      arrange(ncomp, desc(ev)) # desc(TRUE) = 1 puts TRUE before FALSE (0)
-    
+    # Store the full annotated log for the user to review
     selection_logs[[i]] <- log_tbl
   }
   close(pb)
   
   # --- 5. Format Final Output ---
-  tibble(
-    Protein       = all_proteins,
-    Best_NComp    = best_ncomp_sel,
-    Best_EV       = best_ev_sel,
-    Best_BIC      = best_bic_sel,
-    Selection_Log = selection_logs
+  final_res <- tibble(
+    Protein          = all_proteins,
+    Chosen_NComp     = chosen_ncomp_sel,
+    Chosen_EV        = chosen_ev_sel,
+    Chosen_BIC       = chosen_bic_sel,
+    Best_Signal_Mean = best_mean_sel,
+    Ambiguity_Note   = note_sel,
+    Selection_Log    = selection_logs
   )
+  
+  # Store inside the GeoMxSet object for easy retrieval by FilterProteins
+  fData(geomx_set)[["Best_Model_Summary"]] <- final_res
+  
+  return(final_res)
 }
