@@ -155,7 +155,7 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     Selection_Log    = selection_logs
   )
   
-  fData(geomx_set)[["Best_Model_Summary"]] <- final_res
+  geomx_set_Sadeghirad@featureData@data[["Best_Model_Summary"]] <- final_res
   
   return(final_res)
 }
