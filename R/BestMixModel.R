@@ -71,10 +71,10 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     if (length(vals) < 10) next 
     
     protein_tournament <- list()
-    fitted_models <- list() # Store the actual model objects to extract means later
+    fitted_models <- list() 
     
     # --- 3. The Tournament Loop ---
-    for (ev_flag in c(TRUE, FALSE)) { # Test TRUE (simpler) then FALSE
+    for (ev_flag in c(TRUE, FALSE)) { 
       for (k in 1:ncomps) {
         
         fit <- tryCatch(
@@ -89,7 +89,6 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
           bic_val <- fit$bic
           max_mean <- max(fit$mu, na.rm = TRUE)
           
-          # Create a unique ID for this model to link the dataframe to the fitted object
           model_id <- paste0("n", k, "_ev", ev_flag)
           fitted_models[[model_id]] <- fit
         }
@@ -105,7 +104,9 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     }
     
     # --- 4. Bayes Factor Selection Logic ---
-    log_tbl <- bind_rows(protein_tournament) %>% filter(!is.na(bic))
+    log_tbl <- bind_rows(protein_tournament) %>% 
+      filter(!is.na(bic)) %>%
+      filter(!(ncomp == 1 & ev == FALSE)) # FIX: Remove redundant 1-component model
     
     if (nrow(log_tbl) > 0) {
       
@@ -113,18 +114,14 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
       min_bic <- min(log_tbl$bic)
       
       # 4b. Calculate Bayes Factors relative to the minimum BIC model
-      # bic_to_bf returns values > 1 for models worse than the denominator
       log_tbl <- log_tbl %>%
         mutate(
           BF = bayestestR::bic_to_bf(bic, denominator = min_bic),
           log10_BF = abs(log10(BF))
         ) %>%
-        # Sort by SIMPLICITY (Parsimony) first: 
-        # Lower ncomp first, then Equal Variance (TRUE) first
         arrange(ncomp, desc(ev))
       
       # 4c. Occam's Razor: Pick the SIMPLEST model where log10_BF < 0.5
-      # Since log_tbl is already sorted by simplicity, the FIRST row that meets the criteria is our winner
       valid_models <- log_tbl %>% filter(log10_BF < 0.5)
       
       if (nrow(valid_models) > 0) {
@@ -135,8 +132,7 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
         chosen_bic_sel[i]   <- chosen_model$bic
         best_mean_sel[i]    <- chosen_model$max_mean
         
-        # 4d. Check for Ambiguity (Are there other very different models that are also 'close'?)
-        # If the top two models (by BIC, not simplicity) are within 0.5, we flag it.
+        # 4d. Check for Ambiguity
         bic_sorted <- log_tbl %>% arrange(bic)
         if (nrow(bic_sorted) > 1 && bic_sorted$log10_BF[2] < 0.5) {
           note_sel[i] <- "Top 2 models have similar fitting score. Please check manually and decide which model works the best."
@@ -144,7 +140,6 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
       }
     }
     
-    # Store the full annotated log for the user to review
     selection_logs[[i]] <- log_tbl
   }
   close(pb)
@@ -160,7 +155,6 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     Selection_Log    = selection_logs
   )
   
-  # Store inside the GeoMxSet object for easy retrieval by FilterProteins
   fData(geomx_set)[["Best_Model_Summary"]] <- final_res
   
   return(final_res)
