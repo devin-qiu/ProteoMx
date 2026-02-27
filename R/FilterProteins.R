@@ -19,14 +19,14 @@
 #' @details
 #' \strong{Filtering Logic:}
 #' \enumerate{
-#'   \item Retrieves the \code{Best_Model_Summary} table from \code{fData}.
+#'   \item Retrieves the \code{Best_Model_Summary} table from \code{experimentData(geomx_set)@other}.
 #'   \item Calculates the background threshold using the raw data of the selected \code{neg_ctrl}.
 #'   \item For each protein, retrieves the \code{Best_Signal_Mean} (from the optimal model).
 #'   \item If \code{Best_Signal_Mean > Threshold}, the protein is retained.
 #'   \item Negative control probes are always retained for reference.
 #' }
 #'
-#' @importFrom Biobase assayDataElement fData
+#' @importFrom Biobase assayDataElement experimentData
 #' @importFrom dplyr filter
 #' @export
 #'
@@ -46,12 +46,12 @@ FilterProteins <- function(geomx_set, neg_ctrl = "Rt IgG2a", n_sd = 1) {
   require(Biobase)
   
   # --- 1. Validation Checks ---
-  # Check if BestMixModel has been run
-  if (is.null(fData(geomx_set)[["Best_Model_Summary"]])) {
-    stop("BestMixModel summary not found. Please run geomx_set <- BestMixModel(geomx_set) first.")
-  }
+  # Retrieve the summary from the new experimentData slot
+  best_model_df <- experimentData(geomx_set)@other$Best_Model_Summary
   
-  best_model_df <- fData(geomx_set)[["Best_Model_Summary"]]
+  if (is.null(best_model_df)) {
+    stop("BestMixModel summary not found in experimentData. Please run geomx_set <- BestMixModel(geomx_set) first.")
+  }
   
   if (!"q_norm" %in% names(assayData(geomx_set))) stop("q_norm data missing. Run Q3Normalize() first.")
   q3_mat <- assayDataElement(geomx_set, "q_norm")

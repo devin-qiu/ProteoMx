@@ -155,7 +155,9 @@ BestMixModel <- function(geomx_set, ncomps = 3) {
     Selection_Log    = selection_logs
   )
   
-  geomx_set@featureData@data[["Best_Model_Summary"]] <- final_res
+  exp_data <- experimentData(geomx_set)
+  exp_data@other$Best_Model_Summary <- final_res
+  experimentData(geomx_set) <- exp_data
   
-  return(final_res)
+  return(geomx_set)
 }
