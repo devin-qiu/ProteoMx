@@ -11,11 +11,11 @@ Moreover, for spatial analysis on human samples, usually no "standard" dataset p
 
 Therefore, we will need a tool to address this issue, by applying our statistical model to 1) identify proteins that has true positive expression values in comparison to negative probe values; 2) predict cell subpopulation based on the components identified in our statistical model; 3) provide robust insights from the spatial data standing alone. 
 
-# Vignette
-
 **ProteoMx** provides a robust statistical framework for identifying expressed proteins in GeoMx DSP data. 
 
 Instead of using arbitrary signal-to-noise thresholds, ProteoMx uses **Gaussian Mixture Models (GMM)** to mathematically distinguish true biological signal from background noise. This approach is data-driven, adaptive, and ideal for complex spatial proteomics data.
+
+# Vignette
 
 ## Installation
 
