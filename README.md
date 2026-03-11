@@ -1,15 +1,17 @@
-# ProteoMx
-An R package for analyzing proteomics data of Nanostring GeoMx spatial profiling. 
+# Background
+**ProteoMx**: An R package for analyzing proteomics data of Nanostring GeoMx spatial profiling. 
 
-GeoMx protein sequencing is an antibody-based spatial profiling method. It relies on the IF-based ROI selection first, and then based on the classification within each ROI, up to 570 protein targets are sequenced for read counts. 
+GeoMx protein sequencing is an antibody-based spatial profiling method. It relies on the IF-based Region of Interest (ROI) selection first, and then based on the classification within each ROI, up to 570 protein targets are sequenced for read counts. 
 
-Different antibodies have different binding affinities, so the so-called "negative controls" cannot be treated as numeric zeros. Rather, they are qualitative indicators. 
-For spatial analysis on human samples, usually no "standard" dataset paired
+Different antibodies have different binding affinities and specificity to different tissue types, so the protein read values that are below the so-called "negative controls" in the protein panel cannot be treated as numeric zeros. Rather, "negative controls" are qualitative indicators. 
 
-Therefore, we will need
+GeoMx does not reach single-cell resolution. Protein expression are measured with the minimal units as Areas of Interest (AOIs), which are subsets within ROIs. that being said, 
 
+Moreover, for spatial analysis on human samples, usually no "standard" dataset paired compared to other proteomics approaches such as mass spec. 
 
-# ProteoMx
+Therefore, we will need a tool to address this issue, by applying our statistical model to 1) identify proteins that has true positive expression values in comparison to negative probe values; 2) predict cell subpopulation based on the components identified in our statistical model; 3) provide robust insights from the spatial data standing alone. 
+
+# Vignette
 
 **ProteoMx** provides a robust statistical framework for identifying expressed proteins in GeoMx DSP data. 
 
