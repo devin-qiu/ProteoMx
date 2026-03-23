@@ -2,72 +2,35 @@
 % Please edit documentation in R/BestMixModel.R
 \name{BestMixModel}
 \alias{BestMixModel}
-\title{Select Best Mixture Model (Manual Tournament + Selection Log)}
+\title{Select Best Mixture Model (Bayes Factor + Occam's Razor)}
 \usage{
 BestMixModel(geomx_set, ncomps = 3)
 }
 \arguments{
 \item{geomx_set}{A \code{NanoStringGeoMxSet} object. Must be processed by \code{\link{Q3Normalize}} first.}
 
-\item{ncomps}{Integer. The maximum number of components to test (default: 3).
-The function will test all values from 1 to \code{ncomps}.}
+\item{ncomps}{Integer. The maximum number of components to test (default: 3).}
 }
 \value{
 A \code{\link[tibble]{tibble}} with one row per protein and the following columns:
 \itemize{
 \item \code{Protein}: The name of the protein.
-\item \code{Best_NComp}: The number of components in the model with the lowest BIC.
-\item \code{Best_EV}: The variance assumption (TRUE/FALSE) of the winning model.
-\item \code{Best_BIC}: The BIC score of the winning model.
-\item \code{Selection_Log}: A list-column. Each entry contains a nested tibble with the
-history of all successful fits for that protein, sorted by model simplicity
-(fewer components first, then equal variance).
+\item \code{Chosen_NComp}: The number of components in the winning model.
+\item \code{Chosen_EV}: The variance assumption of the winning model.
+\item \code{Chosen_BIC}: The BIC score of the winning model.
+\item \code{Best_Signal_Mean}: The highest component mean from the winning model (used for filtering).
+\item \code{Ambiguity_Note}: Flag if the top 2 models were statistically indistinguishable.
+\item \code{Selection_Log}: Nested tibble containing the history and Bayes Factors of all successful fits.
 }
 }
 \description{
-This function performs a "Manual Tournament" to find the best model (lowest BIC).
-Unlike \code{mixR::select}, this function handles errors gracefully: if a specific
-model fails to converge, it is simply skipped, preventing the entire run from crashing.
-
-It returns a main summary of the mathematical winners, plus a detailed
-\code{Selection_Log} for every protein to allow for manual inspection (e.g., checking the "Elbow Rule").
+This function performs a "Manual Tournament" to find the best model.
+It converts BIC scores to Bayes Factors using \code{bayestestR}. If a simpler
+model (fewer components) is statistically indistinguishable from a more complex model
+(log10(Bayes Factor) < 0.5), the simpler model is chosen to prevent overfitting.
 }
 \details{
 Robustly identifies the optimal mixture model for each protein by manually fitting
-all combinations of components and variance structures.
-
-\strong{The Tournament Logic:}
-For each protein, the function iterates through:
-\itemize{
-\item \code{ncomp}: 1 to \code{ncomps}
-\item \code{ev}: \code{FALSE} (unequal variance) and \code{TRUE} (equal variance)
-}
-The function uses \code{\link{do.call}} to robustly pass data to \code{mixR::mixfit},
-bypassing common scoping errors found in the native package.
-
-\strong{Selection Log Sorting:}
-The inner tables in \code{Selection_Log} are sorted by \strong{Parsimony} (simplicity),
-not by BIC.
-\enumerate{
-\item Lowest \code{ncomp} (1) to highest.
-\item For the same \code{ncomp}, \code{ev=TRUE} (simpler) comes before \code{ev=FALSE}.
-}
-This allows users to easily scan the log and apply the "Elbow Rule" (choosing a simpler model
-if the BIC improvement of a more complex one is negligible).
-}
-\examples{
-\dontrun{
-  # 1. Run the tournament (computationally intensive)
-  best_res <- BestMixModel(geomx_set, ncomps = 3)
-
-  # 2. View the winners
-  print(head(best_res))
-
-  # 3. Inspect the detailed log for the first protein to check for overfitting
-  # (Look for marginal BIC improvements between ncomp=2 and ncomp=3)
-  print(best_res$Selection_Log[[1]])
-}
-}
-\seealso{
-\code{\link{MixModelFit}}, \code{\link{PlotMixModel}}
+all combinations of components and variance structures, and using Bayes Factors
+to penalize unnecessary complexity (Occam's Razor).
 }

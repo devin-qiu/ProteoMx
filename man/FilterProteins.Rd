@@ -2,47 +2,29 @@
 % Please edit documentation in R/FilterProteins.R
 \name{FilterProteins}
 \alias{FilterProteins}
-\title{Filter Proteins by Mixture Model Detection}
+\title{Filter Proteins by Best Mixture Model Detection}
 \usage{
-FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
+FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a", n_sd = 1)
 }
 \arguments{
-\item{geomx_set}{A \code{NanoStringGeoMxSet} object processed by \code{\link{MixModelFit}}.}
+\item{geomx_set}{A \code{NanoStringGeoMxSet} object processed by \code{\link{BestMixModel}}.}
 
 \item{neg_ctrl}{Character. The negative control probe to use as the noise baseline.
-The threshold is calculated as \code{mean(neg_ctrl) + 1 * SD(neg_ctrl)}.
+The threshold is calculated as \code{mean(neg_ctrl) + n_sd * SD(neg_ctrl)}.}
 
-\strong{Recommended Options:}
-\itemize{
-\item "Rt IgG2a" (Often the lowest background)
-\item "Hmr IgG"
-\item "Ms IgG2b"
-\item "Rb IgG"
-\item "Ms IgG1"
-}}
+\item{n_sd}{Numeric. The number of standard deviations above the mean to set the threshold (default: 1).}
 }
 \value{
-A subsetted \code{NanoStringGeoMxSet} object containing only the detected proteins.
-It also prints the lists of kept and excluded proteins to the console.
+A subsetted \code{NanoStringGeoMxSet} object containing the detected proteins and negative controls.
 }
 \description{
-Subsets the GeoMxSet object to retain only proteins that have a detectable signal
-above the negative control background in at least one fitted model.
+This function uses the "Best Model" selected by \code{\link{BestMixModel}} (via Bayes Factors).
+It compares the signal of the best model against a dynamic negative control threshold.
+Proteins are retained only if their optimal model's highest component mean exceeds the threshold.
+Negative control probes are mathematically excluded but silently preserved in the output object
+for downstream plotting functions.
 }
 \details{
-\strong{Filtering Logic:}
-\enumerate{
-\item Recalculates the background threshold based on the user-selected \code{neg_ctrl}.
-\item Iterates through every protein and every model fit stored in \code{experimentData}.
-\item Checks if the \strong{highest component mean} (max mu) of the model exceeds the threshold.
-\item If a protein's signal is \strong{below} the threshold in \strong{ALL} tested models
-(ncomp 1..N, ev T/F), it is considered "undetected" and removed.
-\item Negative control probes are always retained for reference.
-}
-}
-\examples{
-\dontrun{
-  # Filter using the standard Rt IgG2a background
-  geomx_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
-}
+Subsets the GeoMxSet object to retain only proteins that have a detectable signal
+above the negative control background in their statistically optimal mixture model.
 }

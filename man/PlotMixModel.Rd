@@ -24,8 +24,8 @@ stored in the object.}
 \item{ev}{Logical (Optional). Equal variance assumption.
 If \code{NULL}, the function auto-selects the best model based on BIC.}
 
-\item{neg_ctrl}{Character. The negative control probe to use as the noise baseline.
-The threshold is calculated as \code{mean(neg_ctrl) + 1 * SD(neg_ctrl)}.
+\item{neg_ctrl}{Character vector. One or multiple negative control probes to use as the noise baseline.
+The threshold for each is calculated as \code{mean(neg_ctrl) + 1 * SD(neg_ctrl)}.
 
 \strong{Recommended Options:}
 \itemize{
@@ -42,19 +42,19 @@ A \code{\link[ggplot2]{ggplot}} object showing:
 \item Histogram of observed data (density scale)
 \item Gaussian curves for individual components (filled areas)
 \item Total mixture curve (black line)
-\item Threshold line (red dashed) with annotation
+\item Threshold line(s) (red dashed) with annotation
 \item Subtitle indicating if the protein is considered "Detected" (max component mean > threshold)
 }
 }
 \description{
 This function generates a density plot of the log10-transformed data for a selected protein.
 It overlays the fitted mixture components (as filled areas) and the total model fit (as a black line).
-A red dashed line indicates the background noise threshold, calculated dynamically based on
-the selected negative control probe.
+Red dashed lines indicate the background noise thresholds, calculated dynamically based on
+the selected negative control probe(s).
 }
 \details{
-Visualizes the fitted Gaussian mixture model for a specific protein, overlaid with a
-dynamic negative control threshold to assess signal detection.
+Visualizes the fitted Gaussian mixture model for a specific protein, overlaid with
+dynamic negative control thresholds to assess signal detection.
 
 The function retrieves fit parameters directly from \code{experimentData(object)@other$MixModel}.
 It calculates the detection threshold on the fly using the provided \code{neg_ctrl}.
@@ -63,11 +63,11 @@ model combination (ncomp/ev) with the lowest BIC for that specific protein.
 }
 \examples{
 \dontrun{
-  # Plot using auto-detected best parameters and default control
-  PlotMixModel(geomx_set, "CD44")
+  # Plot using a single control
+  PlotMixModel(geomx_set, "CD44", neg_ctrl = "Rt IgG2a")
 
-  # Plot using a specific control and model parameters
-  PlotMixModel(geomx_set, "CD44", ncomp = 2, ev = FALSE, neg_ctrl = "Ms IgG1")
+  # Plot using multiple controls
+  PlotMixModel(geomx_set, "CD44", neg_ctrl = c("Rt IgG2a", "Ms IgG1", "Rb IgG"))
 }
 }
 \seealso{
