@@ -87,3 +87,10 @@ geomx_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
 
 
 
+
+decaybackground: Heteroscedasticity
+
+
+
+
+
