@@ -11,6 +11,7 @@
 #'
 #' @param geomx_set A \code{NanoStringGeoMxSet} object processed by \code{\link{MixModelFit}}.
 #' @param protein Character. The name of the protein to plot.
+#' @param assay Character. The name of the assay to extract data from (default: "q_norm").
 #' @param ncomp Integer (Optional). The number of components to plot.
 #'   If \code{NULL}, the function auto-selects the best model based on the lowest BIC score
 #'   stored in the object.
@@ -44,29 +45,33 @@
 #' model combination (ncomp/ev) with the lowest BIC for that specific protein.
 #'
 #' @import ggplot2
-#' @importFrom Biobase experimentData assayDataElement
+#' @importFrom Biobase experimentData assayDataElement assayData
 #' @importFrom dplyr filter bind_rows
 #' @importFrom tibble tibble
 #' @export
 #'
-#' @seealso \code{\link{MixModelFit}}, \code{\link{FilterProteins}}
+#' @seealso \code{\link{MixModelFit}}, \code{\link{FilterProteins}}, \code{\link{DecayBackground}}
 #'
 #' @examples
 #' \dontrun{
-#'   # Plot using a single control
+#'   # Plot using original normalized data
 #'   PlotMixModel(geomx_set, "CD44", neg_ctrl = "Rt IgG2a")
 #'
-#'   # Plot using multiple controls
-#'   PlotMixModel(geomx_set, "CD44", neg_ctrl = c("Rt IgG2a", "Ms IgG1", "Rb IgG"))
+#'   # Plot the newly penalized data
+#'   PlotMixModel(geomx_set, "CD44", assay = "exp_decayed", neg_ctrl = "Rt IgG2a")
 #' }
-PlotMixModel <- function(geomx_set, protein, ncomp = NULL, ev = NULL, neg_ctrl = "Rt IgG2a") {
+PlotMixModel <- function(geomx_set, protein, assay = "q_norm", ncomp = NULL, ev = NULL, neg_ctrl = "Rt IgG2a") {
   
   require(ggplot2)
   require(dplyr)
   require(tibble)
   require(Biobase)
   
-  # --- 1. Retrieve Analysis Results ---
+  # --- 1. Validation Checks ---
+  if (!assay %in% names(assayData(geomx_set))) {
+    stop(paste("Input assay", assay, "not found in object."))
+  }
+  
   mix_res <- experimentData(geomx_set)@other$MixModel
   
   if (is.null(mix_res)) {
@@ -74,8 +79,9 @@ PlotMixModel <- function(geomx_set, protein, ncomp = NULL, ev = NULL, neg_ctrl =
   }
   
   # --- 2. Calculate Threshold(s) Dynamically ---
-  q3_mat <- assayDataElement(geomx_set, "q_norm")
-  log_mat <- log10(q3_mat + 1)
+  # Extract data based on the user-selected assay
+  raw_mat <- assayDataElement(geomx_set, assay)
+  log_mat <- log10(raw_mat + 1)
   
   missing_ctrls <- setdiff(neg_ctrl, rownames(log_mat))
   if (length(missing_ctrls) > 0) {
@@ -181,8 +187,8 @@ PlotMixModel <- function(geomx_set, protein, ncomp = NULL, ev = NULL, neg_ctrl =
     
     labs(
       title = paste0(protein),
-      subtitle = paste0("Model: ncomp=", ncomp, ", ev=", ev, " | Detected? ", detect_status),
-      x = "log10(Q3 Normalized Counts)", 
+      subtitle = paste0("Model: ncomp=", ncomp, ", ev=", ev, " | Detected? ", detect_status, " | Assay: ", assay),
+      x = paste0("log10(", assay, " + 1)"), 
       y = "Density"
     ) +
     scale_fill_brewer(palette = "Set2") + 
