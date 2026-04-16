@@ -2,9 +2,9 @@
 % Please edit documentation in R/DecayBackground.R
 \name{DecayBackground}
 \alias{DecayBackground}
-\title{Decay Background Signal (Soft Thresholding)}
+\title{Decay Background Signal with ECDF Confidence Weighting}
 \usage{
-DecayBackground(geomx_set, neg_ctrl, n_sd = 1, decay_rate = 2)
+DecayBackground(geomx_set, neg_ctrl, n_sd = 1, base_decay = 2.0)
 }
 \arguments{
 \item{geomx_set}{A \code{NanoStringGeoMxSet} object.}
@@ -13,14 +13,35 @@ DecayBackground(geomx_set, neg_ctrl, n_sd = 1, decay_rate = 2)
 
 \item{n_sd}{Numeric. Number of standard deviations for the threshold (default: 1).}
 
-\item{decay_rate}{Numeric. The intensity of the penalty. Higher = stronger squashing (default: 2).}
+\item{base_decay}{Numeric. The baseline intensity of the penalty (default: 2.0).}
 }
 \value{
 A \code{NanoStringGeoMxSet} object with a new assay added ('exp_decayed') containing the penalized counts.
 }
 \description{
-Applies an exponential decay penalty to expression values that fall below
-the negative control threshold. This gracefully reduces the impact of background noise
-on downstream differential expression without destroying the natural variance
-structure by forcing a hard floor.
+Applies an exponential decay penalty to expression values below the negative 
+control threshold. The intensity of the penalty is dynamically scaled point-by-point 
+using the Empirical Cumulative Distribution Function (ECDF). Data points close to 
+the threshold are spared (high confidence), while points deep in the left tail 
+are aggressively decayed (low confidence).
+}
+\details{
+Traditional hard thresholding (setting sub-threshold values to zero or NA) creates 
+artificial zero-variance spikes that violate the assumptions of downstream linear 
+modeling (e.g., limma). To address this, \code{DecayBackground} applies a continuous 
+soft-thresholding transformation.
+
+For values below the threshold (T), the data undergoes an exponential decay:
+\preformatted{
+  X_new = X * exp(r * k * (X - T))
+}
+Where 'r' is the \code{base_decay} rate and 'k' is a dynamic confidence weight derived 
+from the ECDF (F) of that specific protein across all ROIs:
+\preformatted{
+  k = 1 - (F(X) / F(T))
+}
+This approach creates a "buffer zone": it protects borderline data points just below 
+the threshold (where k approaches 0) while aggressively suppressing unambiguous 
+background noise deeper in the tail (where k approaches 1). This scales organically 
+to individual antibody kinetics and beautifully preserves true biological variance.
 }
