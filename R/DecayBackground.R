@@ -11,7 +11,27 @@
 #' @param n_sd Numeric. Number of standard deviations for the threshold (default: 1).
 #' @param base_decay Numeric. The baseline intensity of the penalty (default: 2.0).
 #'
-#' @return A \code{NanoStringGeoMxSet} object with a new assay added ('exp_decayed').
+#' @return A \code{NanoStringGeoMxSet} object with a new assay added ('exp_decayed') containing the penalized counts.
+#'
+#' @details
+#' Traditional hard thresholding (setting sub-threshold values to zero or NA) creates 
+#' artificial zero-variance spikes that violate the assumptions of downstream linear 
+#' modeling (e.g., limma). To address this, \code{DecayBackground} applies a continuous 
+#' soft-thresholding transformation.
+#' 
+#' For values below the threshold (T), the data undergoes an exponential decay:
+#' \preformatted{
+#'   X_new = X * exp(r * k * (X - T))
+#' }
+#' Where 'r' is the \code{base_decay} rate and 'k' is a dynamic confidence weight derived 
+#' from the ECDF (F) of that specific protein across all ROIs:
+#' \preformatted{
+#'   k = 1 - (F(X) / F(T))
+#' }
+#' This approach creates a "buffer zone": it protects borderline data points just below 
+#' the threshold (where k approaches 0) while aggressively suppressing unambiguous 
+#' background noise deeper in the tail (where k approaches 1). This scales organically 
+#' to individual antibody kinetics and beautifully preserves true biological variance.
 #' 
 #' @importFrom Biobase assayDataElement assayDataElement<- assayData
 #' @importFrom stats ecdf sd
