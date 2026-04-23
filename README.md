@@ -15,7 +15,10 @@ Therefore, we will need a tool to address this issue, by applying our statistica
 
 Instead of using arbitrary signal-to-noise thresholds, ProteoMx uses **Gaussian Mixture Models (GMM)** to mathematically distinguish true biological signal from background noise. This approach is data-driven, adaptive, and ideal for complex spatial proteomics data.
 
-# Vignette
+# Quick Start Workflow
+This example demonstrates the standard ProteoMx pipeline:
+
+**Normalize -> Fit Models -> Select Best Model -> Filter Noise -> Address Heteroscedasticity (Decay) -> QC & Visualize**.
 
 ## Installation
 
@@ -24,11 +27,6 @@ You can install the development version of ProteoMx from GitHub:
 ```r
 # install.packages("devtools")
 devtools::install_github("devin-qiu/ProteoMx")
-```
-
-# Quick Start Workflow
-This example demonstrates the standard ProteoMx pipeline: **Normalize** $\rightarrow$ **Fit** $\rightarrow$ **Visualize** $\rightarrow$ **Filter**.
-```r
 library(ProteoMx)
 library(Biobase)
 ```
@@ -40,7 +38,11 @@ data("geomx_set")
 ```
 
 # 2. Normalize (Q3)
-Normalization based on the 3rd quantile (Q3) corrects for library size differences between AOIs.
+A required preprocessing step. Performs 3rd quantile (Q3) normalization to correct for library size differences between AOIs.
+
+`geomx_set`: A `NanoStringGeoMxSet` object.
+
+**Output**: Adds the normalized matrix to the object under `assayDataElement(object, "q_norm")`.
 ```r
 geomx_set <- Q3Normalize(geomx_set)
 # This function is equivalent to 
