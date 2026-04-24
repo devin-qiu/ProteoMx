@@ -42,7 +42,7 @@ A required preprocessing step. Performs 3rd quantile (Q3) normalization to corre
 
 `geomx_set`: A `NanoStringGeoMxSet` object.
 
-**Output**: Adds the normalized matrix to the object under `assayDataElement(object, "q_norm")`.
+*Output*: Adds the normalized matrix to the object under `assayDataElement(object, "q_norm")`.
 ```r
 geomx_set <- Q3Normalize(geomx_set)
 # This function is equivalent to 
@@ -50,49 +50,105 @@ geomx_set <- Q3Normalize(geomx_set)
 ```
 
 # 3. Fit Mixture Models
-Fits Gaussian models for every protein in the dataset. Both equal and unequal variance fits will be performed by default. 
+Iterates through every protein and fits Gaussian mixture models for every combination of components (1 to ncomps) and variance structures (Equal and Unequal).
 
-*ncomp*: the number of components to be fit in the mixture models. 
+`geomx_set`: A Q3-normalized `NanoStringGeoMxSet` object.
+
+`ncomp`: the number of components to be fit in the mixture models. 
+
+*Output*: Safely stores all mathematical fits inside `experimentData(geomx_set)@other$MixModel`.
+
 ```r
 geomx_set <- MixModelFit(geomx_set, ncomps = 3)
 ```
 
-# 4. Visualization
-Check model fit against the background threshold (Red Line).  
+# 4. Optimize & Select Best Model
+Runs a Bayesian tournament (via BIC and Bayes Factors) to determine the mathematically optimal component structure for every single protein, applying Occam's Razor to prevent overfitting.
 
-protein
+`geomx_set`: The object processed by `MixModelFit`.
 
-ncomp
+`ncomps`: Integer. Must match the maximum number of components run in the fitting step.
 
-ev
-
-neg_ctrl
+*Output*: Safely stores a summary table of the winning models in `experimentData(geomx_set)@other$Best_Model_Summary`.
 
 ```r
-PlotMixModel(geomx_set, protein = "Rt IgG2a")      # Negative Control
-PlotMixModel(geomx_set, protein = "Cytokeratin 17") # Target Protein
-```
+geomx_set <- BestMixModel(geomx_set, ncomps = 3)
 
-# 5. Optimization
-```r
-best_fit <- BestMixModel(geomx_set, ncomps = 3)
-# View results (Best_NComp = optimal number of components)
+# View the summary of winning models
+best_fit <- experimentData(geomx_set)@other$Best_Model_Summary
 head(best_fit)
 ```
 
-# 6. Filter Noise
-Remove proteins that never exceed the background threshold (Mean + 1SD of Neg Control)
+# 5. Filter Noise
+Removes proteins that never meaningfully exceed the background threshold in their statistically optimal model.
+
+`geomx_set`: The object processed by `BestMixModel`.
+
+`neg_ctrl`: Character. The specific negative control probe used to establish the baseline noise floor (e.g., `"Rb IgG"` or `"Rt IgG2a"`).
+
+`n_sd`: Numeric. The number of standard deviations above the mean of the negative control to set the strict threshold. Default is `1`.
+
+*Note*: Negative control probes are mathematically excluded from the biological "Pass" list but are silently preserved in the output object for downstream plotting.
+
 ```r
-geomx_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rt IgG2a")
+geomx_set_filtered <- FilterProteins(geomx_set, neg_ctrl = "Rb IgG", n_sd = 1)
 ```
 
+# 6. Address Heteroscedasticity (Soft Thresholding)
+Different antibodies possess varying binding affinities and background "stickiness", creating heteroscedasticity across targets. `DecayBackground` addresses this by applying an Empirical Cumulative Distribution Function (ECDF)-weighted exponential decay to sub-threshold reads. Data deep in the noise tail is aggressively squashed toward zero, while data near the threshold is spared, preserving natural variance for downstream differential expression.
 
+`geomx_set`: The filtered `NanoStringGeoMxSet` object.
 
+`neg_ctrl`: Character. Must match the negative control used during filtering.
 
+`n_sd`: Numeric. The standard deviation multiplier for the threshold.
 
-decaybackground: Heteroscedasticity
+`base_decay`: Numeric. The baseline penalty multiplier. A higher number squashes the background noise more aggressively. Default is `2.0`.
 
+*Output*: Creates a brand new, analysis-ready matrix inside the object called `"exp_decayed"`.
 
+```r
+geomx_set_filtered <- DecayBackground(geomx_set_filtered, neg_ctrl = "Rb IgG", n_sd = 1, base_decay = 2.0)
+```
 
+# 7. Quality Control (Ambiguity Flagging)
+Cross-references the filtered data to flag highly expressed proteins that failed the detection threshold due to complex distribution overlaps (where the top 2 models were statistically indistinguishable).
 
+`geomx_set`: The filtered object.
 
+*Output*: Prints a summary to the console and saves a review table into the object metadata.
+
+```r
+geomx_set_filtered <- CheckBestModel(geomx_set_filtered)
+
+# View proteins that may require manual inspection
+review_table <- experimentData(geomx_set_filtered)@other$Ambiguous_Models_Review
+```
+
+# 8. Visualization
+Generate density plots to visually assess the Gaussian fits and the threshold cutoffs. You can visualize both the original normalized data and your newly penalized data.
+
+`geomx_set`: The processed object.
+
+`protein`: Character. The target protein name to plot.
+
+`assay`: Character. Which matrix to visualize (`"q_norm"` or `"exp_decayed"`). Default is `"q_norm"`.
+
+`neg_ctrl`: Character or Vector. The threshold(s) to draw as red dashed lines. Accepts multiple controls.
+
+`ncomp` & `ev`: (Optional) Force the plot to show a specific component number or variance assumption. If left as `NULL`, the function automatically plots the optimal model identified by `BestMixModel`.
+
+```r
+# Visualize the original mathematical fit
+PlotMixModel(geomx_set_filtered, protein = "CD4", assay = "q_norm", neg_ctrl = c("Rb IgG", "Ms IgG1", "Ms IgG2a"))
+
+# Visualize the data after Soft-Thresholding 
+PlotMixModel(geomx_set_filtered, protein = "CD4", assay = "exp_decayed", neg_ctrl = c("Rb IgG", "Ms IgG1", "Ms IgG2a"))
+```
+
+# 9. Extracting Data for Downstream Analysis
+Once the pipeline is complete, the `"exp_decayed"` assay is ready to be fed directly into your preferred differential expression tool (like `limma` or `standR`). You can extract the final matrix using standard Biobase commands:
+
+```r
+final_matrix <- Biobase::assayDataElement(geomx_set_filtered, "exp_decayed")
+```
