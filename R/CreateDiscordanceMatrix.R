@@ -1,7 +1,10 @@
 #' Create AOI-normalized Protein Discordance Matrix
 #'
 #' Computes a protein-by-AOI discordance matrix by comparing the AOI rank of each
-#' protein against the AOI rank of a selected negative probe.
+#' protein against the AOI rank of a selected negative probe. The resulting matrix
+#' is stored in \code{experimentData(geomx_set)@other$DiscordanceMatrix} using the
+#' name \code{discordance_<neg_probe>}. If the selected negative-probe name contains
+#' spaces, spaces are replaced with underscores in the stored matrix name.
 #'
 #' For protein i and AOI j:
 #'
@@ -20,10 +23,10 @@
 #' @param proteins Character vector or NULL. Proteins to include. If NULL, all non-negative
 #'   probes except the selected negative probe are used.
 #'
-#' @return A matrix with proteins as rows and AOIs as columns, containing AOI-normalized
-#'   rank-discordance values.
+#' @return The input \code{NanoStringGeoMxSet} object with the discordance matrix
+#'   saved in \code{experimentData(geomx_set)@other$DiscordanceMatrix}.
 #'
-#' @importFrom Biobase assayData assayDataElement
+#' @importFrom Biobase assayData assayDataElement experimentData experimentData<-
 #' @export
 CreateDiscordanceMatrix <- function(
     geomx_set,
@@ -34,7 +37,6 @@ CreateDiscordanceMatrix <- function(
   
   require(Biobase)
   
-  # --- 1. Validate inputs ---
   if (!assay %in% names(assayData(geomx_set))) {
     stop(paste("Error: Assay '", assay, "' not found in the object."))
   }
@@ -45,17 +47,8 @@ CreateDiscordanceMatrix <- function(
     stop(paste("Error: Negative probe '", neg_probe, "' not found in the dataset."))
   }
   
-  common_negs <- c(
-    "Hmr IgG",
-    "Ms IgG2b",
-    "Ms IgG2a",
-    "Rb IgG",
-    "Rt IgG2a",
-    "Ms IgG1"
-  )
-  
   if (is.null(proteins)) {
-    proteins <- setdiff(rownames(expr_mat), common_negs)
+    proteins <- rownames(expr_mat)
   } else {
     missing_proteins <- setdiff(proteins, rownames(expr_mat))
     
@@ -65,23 +58,17 @@ CreateDiscordanceMatrix <- function(
         paste(missing_proteins, collapse = ", ")
       )
     }
-    
-    proteins <- setdiff(proteins, neg_probe)
   }
   
   if (length(proteins) == 0) {
     stop("No valid proteins remain for discordance matrix calculation.")
   }
   
-  # --- 2. Subset expression matrix ---
   target_mat <- expr_mat[proteins, , drop = FALSE]
   neg_vals <- as.numeric(expr_mat[neg_probe, ])
   
-  # --- 3. Rank AOIs for the negative probe ---
-  # ties.method = "average" gives stable behavior when AOIs have identical values
   neg_rank <- rank(neg_vals, ties.method = "average", na.last = "keep")
   
-  # --- 4. Rank AOIs independently for each protein ---
   protein_rank_mat <- t(apply(target_mat, 1, function(x) {
     rank(as.numeric(x), ties.method = "average", na.last = "keep")
   }))
@@ -89,7 +76,6 @@ CreateDiscordanceMatrix <- function(
   rownames(protein_rank_mat) <- proteins
   colnames(protein_rank_mat) <- colnames(expr_mat)
   
-  # --- 5. Compute absolute rank difference d_ij ---
   rankdiff_mat <- sweep(
     protein_rank_mat,
     2,
@@ -99,10 +85,8 @@ CreateDiscordanceMatrix <- function(
   
   rankdiff_mat <- abs(rankdiff_mat)
   
-  # --- 6. Compute AOI-wise denominator D_j + 1 ---
   aoi_rankdiff_sum <- colSums(rankdiff_mat, na.rm = TRUE)
   
-  # --- 7. Normalize each protein's rank difference within each AOI ---
   discordance_mat <- sweep(
     rankdiff_mat,
     2,
@@ -113,5 +97,18 @@ CreateDiscordanceMatrix <- function(
   rownames(discordance_mat) <- proteins
   colnames(discordance_mat) <- colnames(expr_mat)
   
-  return(discordance_mat)
+  neg_probe_clean <- gsub("\\s+", "_", neg_probe)
+  discordance_name <- paste0("discordance_", neg_probe_clean)
+  
+  exp_data <- experimentData(geomx_set)
+  
+  if (is.null(exp_data@other$DiscordanceMatrix)) {
+    exp_data@other$DiscordanceMatrix <- list()
+  }
+  
+  exp_data@other$DiscordanceMatrix[[discordance_name]] <- discordance_mat
+  
+  experimentData(geomx_set) <- exp_data
+  
+  return(geomx_set)
 }

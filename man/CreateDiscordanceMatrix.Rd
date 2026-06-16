@@ -22,12 +22,15 @@ CreateDiscordanceMatrix(
 probes except the selected negative probe are used.}
 }
 \value{
-A matrix with proteins as rows and AOIs as columns, containing AOI-normalized
-rank-discordance values.
+The input \code{NanoStringGeoMxSet} object with the discordance matrix
+saved in \code{experimentData(geomx_set)@other$DiscordanceMatrix}.
 }
 \description{
 Computes a protein-by-AOI discordance matrix by comparing the AOI rank of each
-protein against the AOI rank of a selected negative probe.
+protein against the AOI rank of a selected negative probe. The resulting matrix
+is stored in \code{experimentData(geomx_set)@other$DiscordanceMatrix} using the
+name \code{discordance_<neg_probe>}. If the selected negative-probe name contains
+spaces, spaces are replaced with underscores in the stored matrix name.
 }
 \details{
 For protein i and AOI j:
