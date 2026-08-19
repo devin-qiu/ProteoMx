@@ -9,7 +9,7 @@ PlotExpressionDiscordance(
   protein,
   neg_ctrl = "Rb IgG",
   assay = "exprs",
-  threshold = 0.01,
+  threshold = 0.0005,
   ncol = 3
 )
 }

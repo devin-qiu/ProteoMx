@@ -1,10 +1,13 @@
 #' Check Probe Performance and Dynamic Range Against Negative Probe(s)
 #'
 #' Evaluates the dynamic range and performance of a target protein/probe by
-#' comparing its AOI-level ranked relative signal against one or more negative
+#' comparing its AOI-level ranked assay value against one or more negative
 #' probes. Target and negative probes are ranked independently, while linkage
 #' lines connect matched AOIs between the target and negative probe within each
 #' panel.
+#'
+#' This version plots actual assay values, e.g. q_norm, rather than relative
+#' expression normalized to each probe's maximum.
 #'
 #' @param geomx_set A \code{NanoStringGeoMxSet} object.
 #' @param protein Character. The name of the target protein/probe to evaluate.
@@ -12,6 +15,8 @@
 #'   If NULL, all common negative probes found in the object are used.
 #' @param plot_by Character. Column name in \code{phenoData(geomx_set)} used for color coding.
 #' @param assay Character. Assay to use for expression values. Default is "q_norm".
+#' @param log2_y Logical. If TRUE, plot log2(assay value + pseudocount). Default FALSE.
+#' @param pseudocount Numeric. Pseudocount used when log2_y = TRUE. Default 1.
 #'
 #' @return A \code{\link[ggplot2]{ggplot}} object.
 #'
@@ -24,7 +29,9 @@ CheckProbePerformance <- function(
     protein,
     neg_probe = NULL,
     plot_by,
-    assay = "q_norm"
+    assay = "q_norm",
+    log2_y = FALSE,
+    pseudocount = 1
 ) {
   
   require(ggplot2)
@@ -72,56 +79,61 @@ CheckProbePerformance <- function(
   expr_mat <- assayDataElement(geomx_set, assay)
   pheno_df <- pData(geomx_set)
   
+  # Match phenotype rows to assay columns
+  pheno_df <- pheno_df[colnames(expr_mat), , drop = FALSE]
+  
+  if (!all(rownames(pheno_df) == colnames(expr_mat))) {
+    stop("phenoData rownames do not match assay matrix column names.")
+  }
+  
+  # ------------------------------------------------------------
+  # Target probe values
+  # ------------------------------------------------------------
+  
+  target_values <- as.numeric(expr_mat[protein, ])
+  
+  if (log2_y) {
+    target_values[target_values < 0] <- NA
+    target_values <- log2(target_values + pseudocount)
+  }
+  
   target_df <- data.frame(
     AOI = colnames(expr_mat),
-    Target_Expression = as.numeric(expr_mat[protein, ]),
+    Target_Value = target_values,
     ColorVar = pheno_df[[plot_by]],
     stringsAsFactors = FALSE
   )
   
-  target_df <- target_df[!is.na(target_df$Target_Expression), ]
-  
-  target_max <- max(target_df$Target_Expression, na.rm = TRUE)
-  
-  if (!is.finite(target_max) || target_max == 0) {
-    warning("Maximum target-protein expression is 0 or non-finite. Using 1 to prevent division by zero.")
-    target_max <- 1
-  }
+  target_df <- target_df[is.finite(target_df$Target_Value), ]
   
   target_df <- target_df %>%
-    arrange(Target_Expression) %>%
-    mutate(
-      Target_Rank = row_number(),
-      Target_Rel_Expression = Target_Expression / target_max
-    )
+    arrange(Target_Value) %>%
+    mutate(Target_Rank = row_number())
+  
+  # ------------------------------------------------------------
+  # Negative probe values
+  # ------------------------------------------------------------
   
   panel_list <- lapply(neg_probe, function(neg_name) {
     
+    neg_values <- as.numeric(expr_mat[neg_name, ])
+    
+    if (log2_y) {
+      neg_values[neg_values < 0] <- NA
+      neg_values <- log2(neg_values + pseudocount)
+    }
+    
     neg_df <- data.frame(
       AOI = colnames(expr_mat),
-      Neg_Expression = as.numeric(expr_mat[neg_name, ]),
+      Neg_Value = neg_values,
       stringsAsFactors = FALSE
     )
     
-    neg_df <- neg_df[!is.na(neg_df$Neg_Expression), ]
-    
-    neg_max <- max(neg_df$Neg_Expression, na.rm = TRUE)
-    
-    if (!is.finite(neg_max) || neg_max == 0) {
-      warning(
-        "Maximum expression for negative probe '",
-        neg_name,
-        "' is 0 or non-finite. Using 1 to prevent division by zero."
-      )
-      neg_max <- 1
-    }
+    neg_df <- neg_df[is.finite(neg_df$Neg_Value), ]
     
     neg_df <- neg_df %>%
-      arrange(Neg_Expression) %>%
-      mutate(
-        Neg_Rank = row_number(),
-        Neg_Rel_Expression = Neg_Expression / neg_max
-      )
+      arrange(Neg_Value) %>%
+      mutate(Neg_Rank = row_number())
     
     merged_df <- merge(
       target_df,
@@ -141,10 +153,14 @@ CheckProbePerformance <- function(
     stop("No matched AOIs remain after merging target and negative-probe values.")
   }
   
+  # ------------------------------------------------------------
+  # Plotting data
+  # ------------------------------------------------------------
+  
   target_points <- data.frame(
     AOI = plot_df$AOI,
     Rank = plot_df$Target_Rank,
-    Rel_Expression = plot_df$Target_Rel_Expression,
+    Value = plot_df$Target_Value,
     ColorVar = plot_df$ColorVar,
     Neg_Probe = plot_df$Neg_Probe,
     Probe_Type = protein,
@@ -154,7 +170,7 @@ CheckProbePerformance <- function(
   neg_points <- data.frame(
     AOI = plot_df$AOI,
     Rank = plot_df$Neg_Rank,
-    Rel_Expression = plot_df$Neg_Rel_Expression,
+    Value = plot_df$Neg_Value,
     ColorVar = plot_df$ColorVar,
     Neg_Probe = plot_df$Neg_Probe,
     Probe_Type = plot_df$Neg_Probe,
@@ -167,14 +183,14 @@ CheckProbePerformance <- function(
     data.frame(
       AOI = plot_df$AOI,
       Rank = plot_df$Target_Rank,
-      Rel_Expression = plot_df$Target_Rel_Expression,
+      Value = plot_df$Target_Value,
       Neg_Probe = plot_df$Neg_Probe,
       stringsAsFactors = FALSE
     ),
     data.frame(
       AOI = plot_df$AOI,
       Rank = plot_df$Neg_Rank,
-      Rel_Expression = plot_df$Neg_Rel_Expression,
+      Value = plot_df$Neg_Value,
       Neg_Probe = plot_df$Neg_Probe,
       stringsAsFactors = FALSE
     )
@@ -182,12 +198,22 @@ CheckProbePerformance <- function(
   
   is_numeric_color <- is.numeric(plot_df$ColorVar)
   
+  y_label <- if (log2_y) {
+    paste0("log2(", assay, " + ", pseudocount, ")")
+  } else {
+    assay
+  }
+  
+  # ------------------------------------------------------------
+  # Plot
+  # ------------------------------------------------------------
+  
   p <- ggplot() +
     geom_line(
       data = link_df,
       aes(
         x = Rank,
-        y = Rel_Expression,
+        y = Value,
         group = interaction(Neg_Probe, AOI)
       ),
       color = "grey70",
@@ -198,7 +224,7 @@ CheckProbePerformance <- function(
       data = target_points,
       aes(
         x = Rank,
-        y = Rel_Expression,
+        y = Value,
         color = ColorVar
       ),
       size = 2.5,
@@ -209,7 +235,7 @@ CheckProbePerformance <- function(
       data = neg_points,
       aes(
         x = Rank,
-        y = Rel_Expression,
+        y = Value,
         color = ColorVar
       ),
       size = 1.25,
@@ -220,7 +246,7 @@ CheckProbePerformance <- function(
       data = point_df,
       aes(
         x = Rank,
-        y = Rel_Expression,
+        y = Value,
         linetype = Probe_Type
       ),
       method = "loess",
@@ -235,10 +261,12 @@ CheckProbePerformance <- function(
         "Target and negative probes ranked independently | Color-coded by:",
         plot_by,
         "| Assay:",
-        assay
+        assay,
+        "| Y-axis:",
+        y_label
       ),
       x = "AOI Rank Within Each Probe",
-      y = "Relative Expression (Probe Read / Probe Max Read)",
+      y = y_label,
       color = plot_by,
       linetype = "Probe"
     ) +
